@@ -34,6 +34,11 @@
     .btn-success { background: #16a34a; }
     .btn-outline { background: transparent; border: 2px solid #2563eb; color: #2563eb; margin-top: 10px; }
     
+    /* QR Code and Fallback Styles */
+    .fallback-box { margin-top: 16px; background: #fffbe3; border: 1px solid #ffe58f; padding: 14px; border-radius: 12px; text-align: center; }
+    .qr-container { display: none; margin-top: 12px; background: #ffffff; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .qr-container img { width: 180px; height: 180px; margin: 0 auto; display: block; }
+
     #receipt-area { display: none; background: #ffffff; padding: 20px; border: 1px dashed #94a3b8; border-radius: 12px; }
     .receipt-badge { display: inline-block; background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; margin-bottom: 12px; }
   </style>
@@ -64,11 +69,32 @@
         <div class="divider"></div>
         
         <div class="total-row">
-          <span>Grand Total Amount</span>
+          <span>Total Amount</span>
           <span id="disp-total">₹0.00</span>
         </div>
 
-        <button class="btn" onclick="payViaUPI()">Pay Now</button>
+        <button class="btn" onclick="payViaUPI()">Pay via UPI Link</button>
+
+        <!-- SECURITY FALLBACK OPTION -->
+        <div class="fallback-box">
+          <p style="font-size: 0.8rem; color: #854d0e; font-weight: 700; margin-bottom: 8px;">
+            Getting PhonePe Security Error?
+          </p>
+          <div style="display: flex; gap: 8px; justify-content: center;">
+            <button onclick="toggleQR()" style="background: #eab308; color: #000; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">
+              📷 Show QR Code
+            </button>
+            <button onclick="copyUpiId()" style="background: #0284c7; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">
+              📋 Copy UPI ID
+            </button>
+          </div>
+
+          <div id="qr-box" class="qr-container">
+            <p style="font-size: 0.75rem; color: #475569; margin-bottom: 8px;">Scan or screenshot this QR code in PhonePe / GPay:</p>
+            <img id="qr-img" src="" alt="Payment QR Code">
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -98,7 +124,7 @@
         <div class="divider"></div>
         
         <div class="total-row" style="margin-bottom: 12px;">
-          <span>Grand Total Paid</span>
+          <span>Total Paid</span>
           <span id="rcpt-total"></span>
         </div>
         <p style="font-size: 0.75rem; color: #94a3b8; text-align: center;" id="rcpt-date"></p>
@@ -124,7 +150,7 @@
     }
 
     const billData = {
-      receiverUpi: params.get('upi') || "8522076121@upi",
+      receiverUpi: params.get('upi') || "8522076121@ybl",
       payeeName: params.get('payee') || "Chit Savings Trust",
       memberName: params.get('name') || "Raju",
       memberPhone: params.get('phone') || "9247447830",
@@ -168,6 +194,12 @@
       }
 
       document.getElementById('disp-total').innerText = `₹${grandTotal.toFixed(2)}`;
+
+      // Generate QR Code URL dynamically
+      let cleanVpa = billData.receiverUpi.includes('@') ? billData.receiverUpi : billData.receiverUpi + "@ybl";
+      const upiString = `upi://pay?pa=${encodeURIComponent(cleanVpa)}&pn=${encodeURIComponent(billData.payeeName)}&am=${grandTotal.toFixed(2)}&cu=INR`;
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+      document.getElementById('qr-img').src = qrApiUrl;
     }
 
     renderMemberView();
@@ -175,20 +207,33 @@
     function payViaUPI() {
       let vpa = billData.receiverUpi;
       if (!vpa.includes('@')) {
-        vpa = vpa + "@upi";
+        vpa = vpa + "@ybl";
       }
 
       const pa = encodeURIComponent(vpa);
       const pn = encodeURIComponent(billData.payeeName);
       const am = encodeURIComponent(grandTotal.toFixed(2));
-      const tn = encodeURIComponent(`Chit Payment - ${billData.memberName}`);
 
-      window.location.href = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&tn=${tn}&cu=INR`;
+      // Cleaned deep link (without note parameter)
+      const upiDeepLink = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR`;
+
+      window.location.href = upiDeepLink;
 
       setTimeout(() => {
         document.getElementById('member-screen').style.display = 'none';
         document.getElementById('confirm-screen').style.display = 'block';
       }, 1500);
+    }
+
+    function toggleQR() {
+      const qrBox = document.getElementById('qr-box');
+      qrBox.style.display = qrBox.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function copyUpiId() {
+      let vpa = billData.receiverUpi.includes('@') ? billData.receiverUpi : billData.receiverUpi + "@ybl";
+      navigator.clipboard.writeText(vpa);
+      alert(`UPI ID (${vpa}) copied!\n\nOpen PhonePe/GPay -> Select 'To UPI ID' -> Paste and Pay ₹${grandTotal.toFixed(2)}`);
     }
 
     function showReceipt() {
