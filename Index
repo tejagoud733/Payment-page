@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chit Scheme Payment</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: #ffffff; width: 100%; max-width: 420px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); overflow: hidden; }
+    .card-header { background: #0f172a; color: #ffffff; padding: 20px; text-align: center; }
+    .card-header h2 { font-size: 1.2rem; font-weight: 700; }
+    .card-header p { font-size: 0.85rem; opacity: 0.8; margin-top: 4px; }
+    .card-body { padding: 20px; }
+    
+    .section-title { font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .info-box { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .info-label { font-size: 0.75rem; color: #64748b; }
+    .info-val { font-size: 0.95rem; color: #0f172a; font-weight: 600; margin-top: 2px; }
+    
+    .item-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; color: #334155; }
+    .divider { height: 1px; background: #e2e8f0; margin: 12px 0; }
+    .total-row { display: flex; justify-content: space-between; font-size: 1.25rem; font-weight: 800; color: #0f172a; }
+    
+    .btn { width: 100%; background: #2563eb; color: white; border: none; padding: 14px; font-size: 1rem; font-weight: 600; border-radius: 12px; cursor: pointer; margin-top: 16px; }
+    .btn:active { background: #1d4ed8; }
+    .btn-success { background: #16a34a; }
+    .btn-outline { background: transparent; border: 2px solid #2563eb; color: #2563eb; margin-top: 10px; }
+    
+    #receipt-area { display: none; background: #ffffff; padding: 20px; border: 1px dashed #94a3b8; border-radius: 12px; }
+    .receipt-badge { display: inline-block; background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    
+    <!-- MEMBER SCREEN -->
+    <div id="member-screen">
+      <div class="card-header">
+        <h2 id="disp-payee">Chit Fund Payment</h2>
+        <p>Member Payment Details</p>
+      </div>
+      
+      <div class="card-body">
+        <div class="section-title">Member & Scheme Info</div>
+        <div class="info-grid">
+          <div class="info-box"><div class="info-label">Member Name</div><div class="info-val" id="disp-m-name">--</div></div>
+          <div class="info-box"><div class="info-label">Mobile Number</div><div class="info-val" id="disp-m-phone">--</div></div>
+          <div class="info-box"><div class="info-label">Chit Scheme</div><div class="info-val" id="disp-scheme">--</div></div>
+          <div class="info-box"><div class="info-label">No. of Chits</div><div class="info-val" id="disp-chits">--</div></div>
+        </div>
+
+        <div class="section-title">Payment Breakdown</div>
+        <div id="disp-breakdown"></div>
+        <div class="divider"></div>
+        
+        <div class="total-row">
+          <span>Total Payable Amount</span>
+          <span id="disp-total">₹0.00</span>
+        </div>
+
+        <button class="btn" onclick="payViaUPI()">Pay Now</button>
+      </div>
+    </div>
+
+    <!-- POST PAYMENT CONFIRMATION -->
+    <div id="confirm-screen" style="display: none;" class="card-body">
+      <h3 style="color: #0f172a; margin-bottom: 8px; text-align: center;">Completed Payment?</h3>
+      <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px; text-align: center;">If your payment was authorized in your UPI app, tap below to view and download your receipt.</p>
+      <button class="btn btn-success" onclick="showReceipt()">Generate Receipt</button>
+      <button class="btn btn-outline" onclick="backToPayment()">Try Payment Again</button>
+    </div>
+
+    <!-- RECEIPT VIEW -->
+    <div id="receipt-screen" style="display: none;" class="card-body">
+      <div id="receipt-area">
+        <div class="receipt-badge">✓ OFFICIAL PAYMENT RECEIPT</div>
+        <h2 style="font-size: 1.3rem; color: #0f172a;" id="rcpt-payee">--</h2>
+        <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 12px;">Transaction ID: <span id="rcpt-txid"></span></p>
+        
+        <div class="section-title">Member Details</div>
+        <div class="info-grid">
+          <div class="info-box"><div class="info-label">Name</div><div class="info-val" id="rcpt-m-name">--</div></div>
+          <div class="info-box"><div class="info-label">Mobile</div><div class="info-val" id="rcpt-m-phone">--</div></div>
+          <div class="info-box"><div class="info-label">Scheme</div><div class="info-val" id="rcpt-scheme">--</div></div>
+          <div class="info-box"><div class="info-label">Chits</div><div class="info-val" id="rcpt-chits">--</div></div>
+        </div>
+
+        <div class="section-title">Paid Breakdown</div>
+        <div id="rcpt-breakdown"></div>
+        <div class="divider"></div>
+        
+        <div class="total-row" style="margin-bottom: 12px;">
+          <span>Total Paid</span>
+          <span id="rcpt-total"></span>
+        </div>
+        <p style="font-size: 0.75rem; color: #94a3b8; text-align: center;" id="rcpt-date"></p>
+      </div>
+
+      <button class="btn" onclick="downloadReceiptPDF()">Download PDF Receipt</button>
+    </div>
+
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+
+    const billData = {
+      receiverUpi: params.get('upi') || "8522076121@upi",
+      payeeName: params.get('payee') || "Chit Savings Trust",
+      memberName: params.get('name') || "Member",
+      memberPhone: params.get('phone') || "N/A",
+      schemeName: params.get('scheme') || "Chit Plan",
+      numChits: params.get('chits') || "1",
+      installment: parseFloat(params.get('amt') || "0"),
+      extraFee: parseFloat(params.get('extra') || "0")
+    };
+
+    let grandTotal = billData.installment + billData.extraFee;
+
+    function renderMemberView() {
+      document.getElementById('disp-payee').innerText = billData.payeeName;
+      document.getElementById('disp-m-name').innerText = billData.memberName;
+      document.getElementById('disp-m-phone').innerText = billData.memberPhone;
+      document.getElementById('disp-scheme').innerText = billData.schemeName;
+      document.getElementById('disp-chits').innerText = billData.numChits;
+
+      const breakdownDiv = document.getElementById('disp-breakdown');
+      breakdownDiv.innerHTML = `<div class="item-row"><span>Monthly Installment</span><span>₹${billData.installment.toFixed(2)}</span></div>`;
+      
+      if (billData.extraFee > 0) {
+        breakdownDiv.innerHTML += `<div class="item-row"><span>Extra / Late Fee</span><span>₹${billData.extraFee.toFixed(2)}</span></div>`;
+      }
+
+      document.getElementById('disp-total').innerText = `₹${grandTotal.toFixed(2)}`;
+    }
+
+    renderMemberView();
+
+    function payViaUPI() {
+      let vpa = billData.receiverUpi;
+      if (!vpa.includes('@')) vpa += "@upi";
+
+      const pa = encodeURIComponent(vpa);
+      const pn = encodeURIComponent(billData.payeeName);
+      const am = encodeURIComponent(grandTotal.toFixed(2));
+      const tn = encodeURIComponent(`Chit Payment - ${billData.memberName}`);
+
+      window.location.href = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&tn=${tn}&cu=INR`;
+
+      setTimeout(() => {
+        document.getElementById('member-screen').style.display = 'none';
+        document.getElementById('confirm-screen').style.display = 'block';
+      }, 1500);
+    }
+
+    function showReceipt() {
+      document.getElementById('rcpt-payee').innerText = billData.payeeName;
+      document.getElementById('rcpt-txid').innerText = "TXN" + Math.floor(1000000000 + Math.random() * 900000000);
+      document.getElementById('rcpt-m-name').innerText = billData.memberName;
+      document.getElementById('rcpt-m-phone').innerText = billData.memberPhone;
+      document.getElementById('rcpt-scheme').innerText = billData.schemeName;
+      document.getElementById('rcpt-chits').innerText = billData.numChits;
+      document.getElementById('rcpt-total').innerText = `₹${grandTotal.toFixed(2)}`;
+      document.getElementById('rcpt-date').innerText = "Date: " + new Date().toLocaleString();
+
+      const rcptBreakdownDiv = document.getElementById('rcpt-breakdown');
+      rcptBreakdownDiv.innerHTML = `<div class="item-row"><span>Monthly Installment</span><span>₹${billData.installment.toFixed(2)}</span></div>`;
+      if (billData.extraFee > 0) {
+        rcptBreakdownDiv.innerHTML += `<div class="item-row"><span>Extra / Late Fee</span><span>₹${billData.extraFee.toFixed(2)}</span></div>`;
+      }
+
+      document.getElementById('confirm-screen').style.display = 'none';
+      document.getElementById('receipt-screen').style.display = 'block';
+      document.getElementById('receipt-area').style.display = 'block';
+    }
+
+    function backToPayment() {
+      document.getElementById('confirm-screen').style.display = 'none';
+      document.getElementById('member-screen').style.display = 'block';
+    }
+
+    function downloadReceiptPDF() {
+      const element = document.getElementById('receipt-area');
+      html2pdf().set({ margin: 8, filename: `${billData.memberName}_Chit_Receipt.pdf`, html2canvas: { scale: 2 } }).from(element).save();
+    }
+  </script>
+</body>
+</html>
